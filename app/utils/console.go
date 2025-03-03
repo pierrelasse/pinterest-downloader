@@ -13,3 +13,9 @@ func Console_write(str string) {
 func Console_writeln(str string) {
 	os.Stdout.Write([]byte(str + "\n"))
 }
+
+func Console_read() string {
+	reader := bufio.NewReader(os.Stdin)
+	input, _ := reader.ReadString('\n')
+	return strings.TrimSpace(input)
+}
