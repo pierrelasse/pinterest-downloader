@@ -1,0 +1,10 @@
+#!/bin/bash
+
+./build && (
+    cd run
+    echo '> RUNNING'
+
+    ./pinterest-downloader.exe
+
+    echo '> EXITED'
+)

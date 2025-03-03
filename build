@@ -1,0 +1,9 @@
+#!/bin/bash
+
+(
+    cd app
+
+    GOOS=windows GOARCH=amd64 go build -o '../run/pinterest-downloader.exe' . || exit
+
+    echo '> BUILD COMPLETE!'
+)
