@@ -1,6 +1,10 @@
 package utils
 
-import "os"
+import (
+	"bufio"
+	"os"
+	"strings"
+)
 
 func Console_clear() {
 	Console_write("\033[H\033[2J")
