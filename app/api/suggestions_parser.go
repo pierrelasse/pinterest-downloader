@@ -1,81 +1,94 @@
 package api
 
 import (
+	"pinterest-downloader/app/utils"
 	"strings"
 	"time"
 )
 
 type Date struct {
-	Formatted string `json:"formatted"`
-	Initial   string `json:"initial"`
+	Formatted string
+	Initial   string
+}
+
+type ISearch_Pinner struct {
+	ID        string
+	Username  string
+	FullName  string
+	AvatarURL string
+	Followers *int
 }
 
 type ISearch struct {
-	ID     string `json:"id"`
-	Title  string `json:"title"`
-	Pinner struct {
-		ID        string `json:"id"`
-		Username  string `json:"username"`
-		FullName  string `json:"full_name"`
-		AvatarURL string `json:"avatarURL"`
-		Followers *int   `json:"followers"`
-	} `json:"pinner"`
-	Date     Date    `json:"date"`
-	Type     string  `json:"type"`
-	ImageURL string  `json:"imageURL"`
-	Video    *string `json:"video"`
+	ID       string
+	Title    string
+	Pinner   ISearch_Pinner
+	Date     Date
+	Type     string
+	ImageURL string
+	Video    *string
+}
+
+type parseSuggestions_Result struct {
+	Bookmark string
+	Response []ISearch
 }
 
 func formatDate(date time.Time, layout string) string {
 	return date.Format(layout)
 }
 
-func parseSuggestions(data map[string]interface{}) map[string]interface{} {
-	root, ok := data["resource_response"].(map[string]interface{})
+func parseSuggestions(d utils.JSON) *parseSuggestions_Result {
+	resourceResponse, ok := d["resource_response"].(utils.JSON)
 	if !ok {
 		return nil
 	}
 
-	results, _ := root["data"].([]interface{})
-	bookmark, _ := root["bookmark"].(string)
+	data := resourceResponse["data"].([]interface{})
+	bookmark, ok := resourceResponse["bookmark"].(string)
+	if !ok {
+		return nil
+	}
 
 	var array []ISearch
 
-	for _, item := range results {
+	for _, i := range data {
+		item := i.(utils.JSON)
 
-		response, _ := item.(map[string]interface{})
-
-		imageURL := response["images"].(map[string]interface{})["orig"].(map[string]interface{})["url"].(string)
-		title := response["title"]
-		if title == nil {
-			title = response["grid_title"]
+		images, ok := item["images"]
+		if !ok {
+			continue
 		}
 
-		id := response["id"].(string)
-		date := response["created_at"].(string)
-		typeVal := response["type"].(string)
-		pinner, _ := response["pinner"].(map[string]interface{})
+		image := images.(utils.JSON)["orig"].(utils.JSON)
+		imageURL := image["url"].(string)
+
+		title := item["title"]
+		if title == nil {
+			title = item["grid_title"]
+		}
+
+		id := item["id"].(string)
+		date := item["created_at"].(string)
+		typeVal := item["type"].(string)
+		pinner, _ := item["pinner"].(utils.JSON)
 		initialDate, _ := time.Parse(time.RFC3339, date)
 		formattedDate := formatDate(initialDate, "2006-01-02")
 
 		var cleanURL *string
-		videos := response["videos"].(map[string]interface{})
-		if videoList, ok := videos["video_list"].(map[string]interface{}); ok {
-			if vHLSV4, ok := videoList["V_HLSV4"].(map[string]interface{}); ok {
-				url := vHLSV4["url"].(string)
-				replacement := strings.Replace(url, "/hls/", "/hevcMp4V2/", 1)
-				cleanURLValue := strings.Replace(replacement, ".m3u8", "_t5.mp4", 1)
-				cleanURL = &cleanURLValue
+		videos, ok := item["videos"].(utils.JSON)
+		if ok {
+			if videoList, ok := videos["video_list"].(utils.JSON); ok {
+				if vHLSV4, ok := videoList["V_HLSV4"].(utils.JSON); ok {
+					url := vHLSV4["url"].(string)
+					replacement := strings.Replace(url, "/hls/", "/hevcMp4V2/", 1)
+					cleanURLValue := strings.Replace(replacement, ".m3u8", "_t5.mp4", 1)
+					cleanURL = &cleanURLValue
+				}
 			}
 		}
 
-		pinnerData := struct {
-			ID        string `json:"id"`
-			Username  string `json:"username"`
-			FullName  string `json:"full_name"`
-			AvatarURL string `json:"avatarURL"`
-			Followers *int   `json:"followers"`
-		}{
+		pinnerData := ISearch_Pinner{
 			ID:        pinner["id"].(string),
 			Username:  pinner["username"].(string),
 			FullName:  pinner["full_name"].(string),
@@ -97,8 +110,8 @@ func parseSuggestions(data map[string]interface{}) map[string]interface{} {
 		})
 	}
 
-	return map[string]interface{}{
-		"bookmark": bookmark,
-		"response": array,
+	return &parseSuggestions_Result{
+		Bookmark: bookmark,
+		Response: array,
 	}
 }
